@@ -188,6 +188,11 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 let pinId = 0;
 const markers = {};
 
+// CREATE A TOP PANE FOR MARKERS
+map.createPane('alwaysOnTopPane');
+map.getPane('alwaysOnTopPane').style.zIndex = 650; 
+map.getPane('alwaysOnTopPane').style.pointerEvents = 'auto';
+
 // PIN DINÁMICO
 function createPin(color = "#ff4fd8") {
   return L.divIcon({
@@ -242,8 +247,9 @@ map.on("click", function(e) {
   const id = pinId++;
 
   const marker = L.marker(e.latlng, {
-    icon: createPin()
-  }).addTo(map);
+  icon: createPin(),
+  pane: 'alwaysOnTopPane'
+}).addTo(map);
 
   markers[id] = marker;
 
@@ -355,11 +361,12 @@ async function loadPins() {
     const data = doc.data();
 
     const marker = L.marker(
-      [data.lat, data.lng],
-      {
-        icon: createPin(data.color || "#ff4fd8")
-      }
-    ).addTo(map);
+  [data.lat, data.lng],
+  {
+    icon: createPin(data.color || "#ff4fd8"),
+    pane: 'alwaysOnTopPane'
+  }
+).addTo(map);
 
     marker.bindPopup(`
       <div style="max-width:220px;">
