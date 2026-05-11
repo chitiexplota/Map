@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Mapa test</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<style>
+html, body {
+  margin: 0;
+  height: 100%;
+  font-family: Roboto, sans-serif;
+}
+
+#map {
+  height: 100vh;
+  width: 100%;
+}
+
+/* TITLE */
+#title {
+    position: absolute;
+  top: 18px;
+  left: 18px;
+  z-index: 9999;
+  font-size: 52px;
+  font-style: italic;
+  font-weight: 700;
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 14px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(1px);
+  text-shadow: 0 0 12px rgba(124, 123, 123, 0.776)
+}
+
+/* SEARCH */
+#searchBox {
+  position: absolute;
+  top: 20px;
+  right: 70px;
+  z-index: 9999;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: none;
+  outline: none;
+  width: 220px;
+}
+
+#suggestions {
+  position: absolute;
+  top: 60px;
+  right: 70px;
+  z-index: 9999;
+  width: 220px;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+  display: none;
+}
+
+.suggestion {
+  padding: 8px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.suggestion:hover {
+  background: #eee;
+}
+
+/* INFO */
+#info {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  z-index: 9999;
+  background: rgba(0,0,0,0.6);
+  color: white;
+  padding: 10px 14px;
+  border-radius: 10px;
+}
+
+/* ZOOM */
+.zoomBtn {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: none;
+  background: white;
+  color: black;
+  font-size: 22px;
+  font-weight: bold;
+  z-index: 9999;
+  cursor: pointer;
+}
+
+#zoomOut {
+  bottom: 70px;
+}
+
+/* PIN */
+.pin {
+  width:14px;
+  height:14px;
+  border:2px solid white;
+  border-radius:50%;
+  box-shadow:0 2px 6px rgba(0,0,0,0.3);
+}
+
+/* POPUP */
+.popup-btn {
+  margin-top: 10px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.done-btn {
+  background: black;
+  color: white;
+}
+
+.close-btn {
+  background: #ddd;
+}
+
+.leaflet-popup-close-button {
+  left: 10px !important;
+  right: auto !important;
+}
+</style>
+</head>
+
+<body>
+
+<div id="title">Haçiendo</div>
+
+<input id="searchBox" type="text" placeholder="buscar dirección" />
+<div id="suggestions"></div>
+
+<div id="info">Haz click en el mapa para crear un pin</div>
+
+<div id="map"></div>
+
+<button class="zoomBtn" id="zoomIn">+</button>
+<button class="zoomBtn" id="zoomOut">−</button>
+
+<script type="module">
+  import { initializeApp } 
+from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  getDocs
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAWGffQhe1R_lSjaXGvMsLwYlTZILgoJ7s",
+  authDomain: "digitalull.firebaseapp.com",
+  projectId: "digitalull",
+  storageBucket: "digitalull.firebasestorage.app",
+  messagingSenderId: "421274305167",
+  appId: "1:421274305167:web:750093830e5718f9e426fa",
+  measurementId: "G-5NTRRTN0T0"
+};
+
+// MAPA CENTRADO SAGRADA FAMILIA
+const map = L.map('map').setView([41.4036, 2.1744], 16);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap'
+}).addTo(map);
+
+let pinId = 0;
+const markers = {};
+
+// PIN DINÁMICO
+function createPin(color = "#ff4fd8") {
+  return L.divIcon({
+    className: "",
+    html: `
+      <div style="
+        width:14px;
+        height:14px;
+        background:${color};
+        border:2px solid white;
+        border-radius:50%;
+        box-shadow:0 2px 6px rgba(0,0,0,0.3);
+      "></div>
+    `,
+    iconSize: [14, 14],
+    iconAnchor: [7, 7]
+  });
+}
+
+// POPUP
+function popupContent(id) {
+  return `
+    <div style="max-width:220px;">
+      <h3 style="margin:0 0 8px 0;">Comparte tu experiencia</h3>
+
+      <p>1 Haz clic en el lugar donde ocurrió tu historia en el mapa.</p>
+      <p>2 Escribe tu historia.</p>
+      <p>3 Haz clic en «¡Hecho!».</p>
+
+      <textarea style="width:100%; height:60px; border-radius:6px;"></textarea>
+
+      <div style="margin-top:8px;">
+        <label style="font-size:12px;">Color del pin:</label>
+        <input type="color" id="color-${id}" value="#ff4fd8">
+      </div>
+
+      <button class="popup-btn done-btn" onclick="savePin(${id})">
+        ¡Hecho!
+      </button>
+
+      <button class="popup-btn close-btn"
+        onclick="document.querySelector('.leaflet-popup-close-button').click()">
+        X
+      </button>
+    </div>
+  `;
+}
+
+// CLICK MAP
+map.on("click", function(e) {
+
+  const id = pinId++;
+
+  const marker = L.marker(e.latlng, {
+    icon: createPin()
+  }).addTo(map);
+
+  markers[id] = marker;
+
+  marker.bindPopup(popupContent(id)).openPopup();
+
+  // si cierras popup → borra pin
+  marker.on("popupclose", () => {
+    map.removeLayer(marker);
+    delete markers[id];
+  });
+
+});
+
+// GUARDAR COLOR
+window.savePin = async function(id) {
+
+  const marker = markers[id];
+  if (!marker) return;
+
+  const input = document.getElementById(`color-${id}`);
+  const color = input ? input.value : "#ff4fd8";
+
+  const textarea =
+    marker.getPopup().getElement().querySelector("textarea");
+
+  const message = textarea.value;
+
+  marker.setIcon(createPin(color));
+
+  // GUARDAR EN FIREBASE
+  await addDoc(collection(db, "entries"), {
+
+    lat: marker.getLatLng().lat,
+    lng: marker.getLatLng().lng,
+    message: message,
+    color: color,
+    createdAt: Date.now()
+
+  });
+
+  marker.closePopup();
+};
+
+
+// ZOOM
+document.getElementById("zoomIn").onclick = () => map.zoomIn();
+document.getElementById("zoomOut").onclick = () => map.zoomOut();
+
+
+// SEARCH AUTOCOMPLETE
+const input = document.getElementById("searchBox");
+const suggestions = document.getElementById("suggestions");
+
+let timeout;
+
+input.addEventListener("input", () => {
+
+  clearTimeout(timeout);
+
+  const query = input.value;
+  if (query.length < 3) {
+    suggestions.style.display = "none";
+    return;
+  }
+
+  timeout = setTimeout(async () => {
+
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${query}`
+    );
+
+    const data = await res.json();
+
+    suggestions.innerHTML = "";
+    suggestions.style.display = "block";
+
+    data.slice(0, 5).forEach(place => {
+
+      const div = document.createElement("div");
+      div.className = "suggestion";
+      div.innerText = place.display_name;
+
+      div.onclick = () => {
+        map.setView([place.lat, place.lon], 16);
+        input.value = place.display_name;
+        suggestions.style.display = "none";
+      };
+
+      suggestions.appendChild(div);
+    });
+
+  }, 300);
+
+});
+
+document.addEventListener("click", (e) => {
+  if (!e.target.closest("#searchBox")) {
+    suggestions.style.display = "none";
+  }
+});
+
+async function loadPins() {
+
+  const snapshot =
+    await getDocs(collection(db, "entries"));
+
+  snapshot.forEach((doc) => {
+
+    const data = doc.data();
+
+    const marker = L.marker(
+      [data.lat, data.lng],
+      {
+        icon: createPin(data.color || "#ff4fd8")
+      }
+    ).addTo(map);
+
+    marker.bindPopup(`
+      <div style="max-width:220px;">
+        ${data.message || ""}
+      </div>
+    `);
+
+  });
+
+}
+
+loadPins();
+
+</script>
+
+</body>
+</html>
