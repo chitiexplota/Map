@@ -175,6 +175,9 @@ const firebaseConfig = {
   measurementId: "G-5NTRRTN0T0"
 };
 
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
 // MAPA CENTRADO SAGRADA FAMILIA
 const map = L.map('map').setView([41.4036, 2.1744], 16);
 
