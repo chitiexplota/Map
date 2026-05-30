@@ -234,11 +234,36 @@ function popupContent(id) {
     <div style="max-width:220px;">
       <h3 style="margin:0 0 8px 0;">Comparte tu experiencia</h3>
 
-      <p>1 Haz clic en el lugar donde ocurrió tu historia en el mapa.</p>
-      <p>2 Escribe tu historia.</p>
+      <p>1 Haz clic en un lugar en el mapa.</p>
+      <p>2 Escribe tu experiencia, historia o sensación relacionada con ese lugar.</p>
       <p>3 Haz clic en «¡Hecho!».</p>
 
-      <textarea style="width:100%; height:60px; border-radius:6px;"></textarea>
+       <div style="margin-bottom:8px;">
+        <label style="font-size:12px;">Nombre o identificador:</label>
+        <input
+          type="text"
+          id="name-${id}"
+          placeholder="Tu nombre no aparecerá en el mapa."
+          style="
+            width:100%;
+            margin-top:4px;
+            padding:6px;
+            border-radius:6px;
+            border:1px solid #ccc;
+            box-sizing:border-box;
+          "
+        >
+      </div>
+
+      <textarea
+        style="
+          width:100%;
+          height:60px;
+          border-radius:6px;
+          box-sizing:border-box;
+        "
+        placeholder="Escribe aquí tu historia..."
+      ></textarea>
 
       <div style="margin-top:8px;">
         <label style="font-size:12px;">Color del pin:</label>
@@ -279,32 +304,34 @@ map.on("click", function(e) {
 
 });
 
-// GUARDAR COLOR
+// SAVE COLOUR AND NAME
 window.savePin = async function(id) {
 
   const marker = markers[id];
   if (!marker) return;
 
   const input = document.getElementById(`color-${id}`);
-  const color = input ? input.value : "#ff4fd8";
-
-  const textarea =
-    marker.getPopup().getElement().querySelector("textarea");
-
+  const color = input ? input.value : "#ff4fd8"; 
+  
+  const popup = marker.getPopup().getElement();
+  
+  const textarea = popup.querySelector("textarea");
   const message = textarea.value;
-
-  marker.setIcon(createPin(color));
+  
+  const nameInput = popup.querySelector(`#name-${id}`);
+  const author = nameInput ? nameInput.value : "";  marker.setIcon(createPin(color));
 
   // GUARDAR EN FIREBASE
   await addDoc(collection(db, "entries"), {
 
-    lat: marker.getLatLng().lat,
-    lng: marker.getLatLng().lng,
-    message: message,
-    color: color,
-    createdAt: Date.now()
+  lat: marker.getLatLng().lat,
+  lng: marker.getLatLng().lng,
+  author: author,
+  message: message,
+  color: color,
+  createdAt: Date.now()
 
-  });
+});
 
   marker.closePopup();
 };
@@ -394,7 +421,15 @@ async function loadPins() {
 
 }
 
-loadPins();
+// SHOW ON MAP (NOT AUTHOR)
+loadPins(
+
+marker.bindPopup(`
+  <div style="max-width:220px;">
+    ${data.message || ""}
+  </div>
+`)
+);
 
 </script>
 
