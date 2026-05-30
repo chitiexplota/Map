@@ -319,7 +319,9 @@ window.savePin = async function(id) {
   const message = textarea.value;
   
   const nameInput = popup.querySelector(`#name-${id}`);
-  const author = nameInput ? nameInput.value : "";  marker.setIcon(createPin(color));
+  const author = nameInput ? nameInput.value : "";  
+  
+  marker.setIcon(createPin(color));
 
   // GUARDAR EN FIREBASE
   await addDoc(collection(db, "entries"), {
@@ -420,6 +422,8 @@ async function loadPins() {
   });
 
 }
+
+loadPins();
 
 
 </script>
