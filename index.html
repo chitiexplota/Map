@@ -18,9 +18,6 @@ html, body {
 #map {
   height: 100vh;
   width: 100%;
-}
-
-#map {
   background: #F0F0F0;
 }
 
@@ -33,7 +30,7 @@ html, body {
 
 /* TITLE */
 #title {
-    position: absolute;
+  position: absolute;
   top: 25px;
   left: 25px;
   z-index: 9999;
@@ -45,10 +42,10 @@ html, body {
   border-radius: 14px;
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(1px);
-  text-shadow: 0 0 12px rgba(124, 123, 123, 0.776)
+  text-shadow: 0 0 12px rgba(124, 123, 123, 0.776);
 }
 
-/* SEARCHBOX */
+/* SEARCH BOX */
 #searchBox {
   position: absolute;
   top: 20px;
@@ -84,7 +81,7 @@ html, body {
   background: #eee;
 }
 
-/* INFO */
+/* INFO*/
 #info {
   position: absolute;
   bottom: 20px;
@@ -117,13 +114,13 @@ html, body {
   bottom: 70px;
 }
 
-/* PIN */
+/* PINS */
 .pin {
-  width:14px;
-  height:14px;
-  border:2px solid white;
-  border-radius:50%;
-  box-shadow:0 2px 6px rgba(0,0,0,0.3);
+  width: 14px;
+  height: 14px;
+  border: 2px solid white;
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
 }
 
 /* POPUP */
@@ -166,264 +163,283 @@ html, body {
 <button class="zoomBtn" id="zoomOut">−</button>
 
 <script type="module">
-  import { initializeApp } 
-from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { initializeApp }
+    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getFirestore,
+    collection,
+    addDoc,
+    getDocs
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-import {
-  getFirestore,
-  collection,
-  addDoc,
-  getDocs
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  // ── FIREBASE CONFIG ──
+  const firebaseConfig = {
+    apiKey: "AIzaSyAWGffQhe1R_lSjaXGvMsLwYlTZILgoJ7s",
+    authDomain: "digitalull.firebaseapp.com",
+    projectId: "digitalull",
+    storageBucket: "digitalull.firebasestorage.app",
+    messagingSenderId: "421274305167",
+    appId: "1:421274305167:web:750093830e5718f9e426fa",
+    measurementId: "G-5NTRRTN0T0"
+  };
 
-const firebaseConfig = {
-  apiKey: "AIzaSyAWGffQhe1R_lSjaXGvMsLwYlTZILgoJ7s",
-  authDomain: "digitalull.firebaseapp.com",
-  projectId: "digitalull",
-  storageBucket: "digitalull.firebasestorage.app",
-  messagingSenderId: "421274305167",
-  appId: "1:421274305167:web:750093830e5718f9e426fa",
-  measurementId: "G-5NTRRTN0T0"
-};
+  const app = initializeApp(firebaseConfig);
+  const db  = getFirestore(app);
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+  // ── MAP — centred on Sagrada Família ──
+  const map = L.map('map').setView([41.4036, 2.1744], 13);
 
-// MAPA MINIMALISTA CENTRADO SAGRADA FAMILIA
-const map = L.map('map').setView([41.4036, 2.1744], 13);
+  L.tileLayer(
+    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    {
+      attribution: '&copy; OpenStreetMap &copy; CARTO',
+      subdomains: 'abcd',
+      maxZoom: 20
+    }
+  ).addTo(map);
 
-L.tileLayer(
-  'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-  {
-    attribution: '&copy; OpenStreetMap &copy; CARTO',
-    subdomains: 'abcd',
-    maxZoom: 20
-  }
-).addTo(map);
+  // ── PINS ABOVE ──
+  map.createPane('alwaysOnTopPane');
+  map.getPane('alwaysOnTopPane').style.zIndex        = 650;
+  map.getPane('alwaysOnTopPane').style.pointerEvents = 'auto';
 
-let pinId = 0;
-const markers = {};
+  // PENDING PINS
+  let pinId = 0;
+  const pending = {};
 
-// CREATE A TOP PANE FOR MARKERS
-map.createPane('alwaysOnTopPane');
-map.getPane('alwaysOnTopPane').style.zIndex = 650; 
-map.getPane('alwaysOnTopPane').style.pointerEvents = 'auto';
-
-// DYNAMIC PINS FROM CUSTOM DESIGN
-function createPin(color = "#FCFDF8") {
-  return L.divIcon({
-    className: "",
-    html: `
-      <div style="
-        width:14px;
-        height:14px;
-        background:${color};
-        transform: rotate(44.87deg);
-        border-radius: 50%;
-        position: absolute;
-      "></div>
-    `,
-    iconSize: [14, 14],
-    iconAnchor: [7, 7]
-  });
-}
-
-// POPUP
-function popupContent(id) {
-  return `
-    <div style="max-width:220px;">
-      <h3 style="margin:0 0 8px 0;">Comparte tu experiencia</h3>
-
-      <p>1 Haz clic en un lugar en el mapa.</p>
-      <p>2 Escribe tu experiencia, historia o sensación relacionada con ese lugar.</p>
-      <p>3 Haz clic en «¡Hecho!».</p>
-
-       <div style="margin-bottom:8px;">
-        <label style="font-size:12px;">Nombre o identificador:</label>
-        <input
-          type="text"
-          id="name-${id}"
-          placeholder="Tu nombre no aparecerá en el mapa."
-          style="
-            width:100%;
-            margin-top:4px;
-            padding:6px;
-            border-radius:6px;
-            border:1px solid #ccc;
-            box-sizing:border-box;
-          "
-        >
-      </div>
-
-      <textarea
-        style="
-          width:100%;
-          height:60px;
-          border-radius:6px;
-          box-sizing:border-box;
-        "
-        placeholder="Escribe aquí tu historia..."
-      ></textarea>
-
-      <div style="margin-top:8px;">
-        <label style="font-size:12px;">Color del pin:</label>
-        <input type="color" id="color-${id}" value="#ff4fd8">
-      </div>
-
-      <button class="popup-btn done-btn" onclick="savePin(${id})">
-        ¡Hecho!
-      </button>
-
-      <button class="popup-btn close-btn"
-        onclick="document.querySelector('.leaflet-popup-close-button').click()">
-        X
-      </button>
-    </div>
-  `;
-}
-
-// CLICK MAP
-map.on("click", function(e) {
-
-  const id = pinId++;
-
-  const marker = L.marker(e.latlng, {
-  icon: createPin(),
-  pane: 'alwaysOnTopPane'
-}).addTo(map);
-
-  markers[id] = marker;
-
-  marker.bindPopup(popupContent(id)).openPopup();
-
-  // si cierras popup → borra pin
-  marker.on("popupclose", () => {
-    map.removeLayer(marker);
-    delete markers[id];
-  });
-
-});
-
-// SAVE COLOUR AND NAME
-window.savePin = async function(id) {
-
-  const marker = markers[id];
-  if (!marker) return;
-
-  const input = document.getElementById(`color-${id}`);
-  const color = input ? input.value : "#ff4fd8"; 
-  
-  const popup = marker.getPopup().getElement();
-  
-  const textarea = popup.querySelector("textarea");
-  const message = textarea.value;
-  
-  const nameInput = popup.querySelector(`#name-${id}`);
-  const author = nameInput ? nameInput.value : "";  
-  
-  marker.setIcon(createPin(color));
-
-  // GUARDAR EN FIREBASE
-  await addDoc(collection(db, "entries"), {
-
-  lat: marker.getLatLng().lat,
-  lng: marker.getLatLng().lng,
-  author: author,
-  message: message,
-  color: color,
-  createdAt: Date.now()
-
-});
-
-  marker.closePopup();
-};
-
-
-// ZOOM
-document.getElementById("zoomIn").onclick = () => map.zoomIn();
-document.getElementById("zoomOut").onclick = () => map.zoomOut();
-
-
-// SEARCH AUTOCOMPLETE
-const input = document.getElementById("searchBox");
-const suggestions = document.getElementById("suggestions");
-
-let timeout;
-
-input.addEventListener("input", () => {
-
-  clearTimeout(timeout);
-
-  const query = input.value;
-  if (query.length < 3) {
-    suggestions.style.display = "none";
-    return;
-  }
-
-  timeout = setTimeout(async () => {
-
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${query}`
-    );
-
-    const data = await res.json();
-
-    suggestions.innerHTML = "";
-    suggestions.style.display = "block";
-
-    data.slice(0, 5).forEach(place => {
-
-      const div = document.createElement("div");
-      div.className = "suggestion";
-      div.innerText = place.display_name;
-
-      div.onclick = () => {
-        map.setView([place.lat, place.lon], 16);
-        input.value = place.display_name;
-        suggestions.style.display = "none";
-      };
-
-      suggestions.appendChild(div);
+  // ── PIN ICONS  ──
+  function createPin(color = "#FCFDF8") {
+    return L.divIcon({
+      className: "",
+      html: `
+        <div style="
+          width: 14px;
+          height: 14px;
+          background: ${color};
+          transform: rotate(44.87deg);
+          border-radius: 50%;
+          position: absolute;
+        "></div>
+      `,
+      iconSize:   [14, 14],
+      iconAnchor: [7, 7]
     });
-
-  }, 300);
-
-});
-
-document.addEventListener("click", (e) => {
-  if (!e.target.closest("#searchBox")) {
-    suggestions.style.display = "none";
   }
-});
 
-async function loadPins() {
-
-  const snapshot =
-    await getDocs(collection(db, "entries"));
-
-  snapshot.forEach((doc) => {
-
-    const data = doc.data();
-
-    const marker = L.marker(
-  [data.lat, data.lng],
-  {
-    icon: createPin(data.color || "#ff4fd8"),
-    pane: 'alwaysOnTopPane'
-  }
-).addTo(map);
-
-    marker.bindPopup(`
+  // ── NEW PIN POPUP ──
+  function newPinPopup(id) {
+    return `
       <div style="max-width:220px;">
-        ${data.message || ""}
-      </div>
-    `);
+        <h3 style="margin:0 0 8px 0;">Comparte tu experiencia</h3>
 
+        <p>1 Haz clic en un lugar en el mapa.</p>
+        <p>2 Escribe tu experiencia, historia o sensación relacionada con ese lugar.</p>
+        <p>3 Haz clic en «¡Hecho!».</p>
+
+        <div style="margin-bottom:8px;">
+          <label style="font-size:12px;">Nombre o identificador:</label>
+          <input
+            type="text"
+            id="name-${id}"
+            placeholder="Tu nombre no aparecerá en el mapa."
+            style="
+              width: 100%;
+              margin-top: 4px;
+              padding: 6px;
+              border-radius: 6px;
+              border: 1px solid #ccc;
+              box-sizing: border-box;
+            "
+          >
+        </div>
+
+        <textarea
+          id="msg-${id}"
+          style="
+            width: 100%;
+            height: 60px;
+            border-radius: 6px;
+            box-sizing: border-box;
+          "
+          placeholder="Escribe aquí tu historia..."
+        ></textarea>
+
+        <div style="margin-top:8px;">
+          <label style="font-size:12px;">Color del pin:</label>
+          <input type="color" id="color-${id}" value="#ff4fd8">
+        </div>
+
+        <button class="popup-btn done-btn" onclick="window.savePin(${id})">
+          ¡Hecho!
+        </button>
+        <button class="popup-btn close-btn"
+          onclick="window.cancelPin(${id})">
+          X
+        </button>
+      </div>
+    `;
+  }
+
+  // ── SAVED PIN POPUP ──
+  // Author is intentionally NOT displayed here
+  function savedPinPopup(message) {
+    return `
+      <div style="max-width:220px;">
+        ${message ? `<p style="margin:0;">${message}</p>` : "<em>Sin mensaje.</em>"}
+      </div>
+    `;
+  }
+
+  // ── MAP CLICK ──
+  map.on("click", function(e) {
+    const id     = pinId++;
+    const marker = L.marker(e.latlng, {
+      icon: createPin(),
+      pane: 'alwaysOnTopPane'
+    }).addTo(map);
+
+    pending[id] = { marker, saved: false };
+
+    marker.bindPopup(newPinPopup(id)).openPopup();
+
+    // NOT SAVING PINS
+    marker.on("popupclose", () => {
+      if (!pending[id]?.saved) {
+        map.removeLayer(marker);
+      }
+      delete pending[id];
+    });
   });
 
-}
+  // ── SAVE PIN 
+  window.savePin = async function(id) {
+    const entry = pending[id];
+    if (!entry) return;
 
-loadPins();
+    const { marker } = entry;
+
+    const colorInput = document.getElementById(`color-${id}`);
+    const msgInput   = document.getElementById(`msg-${id}`);
+    const nameInput  = document.getElementById(`name-${id}`);
+
+    const color   = colorInput ? colorInput.value : "#ff4fd8";
+    const message = msgInput   ? msgInput.value   : "";
+    const author  = nameInput  ? nameInput.value  : "";
+
+    // MARK AS SAVED
+    pending[id].saved = true;
+
+    // PIN COLOUR
+    marker.setIcon(createPin(color));
+
+    // NOT SHOW AUTHOR
+    marker.unbindPopup();
+    marker.bindPopup(savedPinPopup(message));
+    marker.closePopup();
+
+    // SAVE TO FIRESTONE
+    try {
+      await addDoc(collection(db, "entries"), {
+        lat:       marker.getLatLng().lat,
+        lng:       marker.getLatLng().lng,
+        author:    author,   // stored but never displayed on the map
+        message:   message,
+        color:     color,
+        createdAt: Date.now()
+      });
+    } catch (err) {
+      console.error("Firestore write error:", err);
+    }
+  };
+
+  // ── CANCEL PIN 
+  window.cancelPin = function(id) {
+    const entry = pending[id];
+    if (!entry) return;
+    map.removeLayer(entry.marker);
+    delete pending[id];
+  };
+
+  // ── ZOOM CONTROL
+  document.getElementById("zoomIn").onclick  = () => map.zoomIn();
+  document.getElementById("zoomOut").onclick = () => map.zoomOut();
+
+  // ── SEARCH AUTOCOMPLETE
+  const searchInput   = document.getElementById("searchBox");
+  const suggestionBox = document.getElementById("suggestions");
+  let debounceTimer;
+
+  searchInput.addEventListener("input", () => {
+    clearTimeout(debounceTimer);
+
+    const query = searchInput.value;
+    if (query.length < 3) {
+      suggestionBox.style.display = "none";
+      return;
+    }
+
+    debounceTimer = setTimeout(async () => {
+      try {
+        const res  = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`
+        );
+        const data = await res.json();
+
+        suggestionBox.innerHTML     = "";
+        suggestionBox.style.display = "block";
+
+        data.slice(0, 5).forEach(place => {
+          const div     = document.createElement("div");
+          div.className = "suggestion";
+          div.innerText = place.display_name;
+
+          div.onclick = () => {
+            map.setView([place.lat, place.lon], 16);
+            searchInput.value           = place.display_name;
+            suggestionBox.style.display = "none";
+          };
+
+          suggestionBox.appendChild(div);
+        });
+      } catch (err) {
+        console.error("Nominatim search error:", err);
+      }
+    }, 300);
+  });
+
+  // HIDE SUGGESTIONS
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest("#searchBox")) {
+      suggestionBox.style.display = "none";
+    }
+  });
+
+  // ── LOAD PINS FROM FIRESTORE ──
+  async function loadPins() {
+    try {
+      const snapshot = await getDocs(collection(db, "entries"));
+
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+
+        const marker = L.marker(
+          [data.lat, data.lng],
+          {
+            icon: createPin(data.color || "#ff4fd8"),
+            pane: 'alwaysOnTopPane'
+          }
+        ).addTo(map);
+
+        // NOT SHOW AUTHOR
+        marker.bindPopup(savedPinPopup(data.message));
+      });
+
+    } catch (err) {
+      console.error("Firestore load error:", err);
+    }
+  }
+
+  loadPins();
 
 </script>
 
