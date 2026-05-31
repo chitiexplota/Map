@@ -23,7 +23,7 @@ html, body {
 
 .leaflet-tile {
   filter:
-    saturate(0.45)
+    saturate(1.0)
     contrast(1)
     brightness(0.95);
 }
@@ -114,15 +114,6 @@ html, body {
   bottom: 70px;
 }
 
-/* PINS */
-.pin {
-  width: 14px;
-  height: 14px;
-  border: 2px solid white;
-  border-radius: 50%;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-}
-
 /* POPUP */
 .popup-btn {
   margin-top: 10px;
@@ -166,13 +157,17 @@ html, body {
   import { initializeApp }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
-    getFirestore,
+      getFirestore,
     collection,
     addDoc,
-    getDocs
+    getDocs,
+    doc,
+    updateDoc,
+    increment
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-  // ── FIREBASE CONFIG ──
+
+  // FIREBASE  
   const firebaseConfig = {
     apiKey: "AIzaSyAWGffQhe1R_lSjaXGvMsLwYlTZILgoJ7s",
     authDomain: "digitalull.firebaseapp.com",
@@ -186,7 +181,7 @@ html, body {
   const app = initializeApp(firebaseConfig);
   const db  = getFirestore(app);
 
-  // ── MAP — centred on Sagrada Família ──
+  //  MAP: centred on Barcelona
   const map = L.map('map').setView([41.4036, 2.1744], 13);
 
   L.tileLayer(
@@ -198,7 +193,17 @@ html, body {
     }
   ).addTo(map);
 
-  // ── PINS ABOVE ──
+  // LAYER OVERLAY
+L.tileLayer(
+  'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',
+  {
+    opacity: 1.0,
+    subdomains: 'abcd',
+    maxZoom: 20
+  }
+).addTo(map);
+
+  // PINS ABOVE STREET
   map.createPane('alwaysOnTopPane');
   map.getPane('alwaysOnTopPane').style.zIndex        = 650;
   map.getPane('alwaysOnTopPane').style.pointerEvents = 'auto';
@@ -207,7 +212,7 @@ html, body {
   let pinId = 0;
   const pending = {};
 
-  // ── PIN ICONS  ──
+  // PIN ICON
   function createPin(color = "#FCFDF8") {
     return L.divIcon({
       className: "",
@@ -226,16 +231,14 @@ html, body {
     });
   }
 
-  // ── NEW PIN POPUP ──
+  // NEW-PIN POPUP
   function newPinPopup(id) {
     return `
       <div style="max-width:220px;">
         <h3 style="margin:0 0 8px 0;">Comparte tu experiencia</h3>
-
         <p>1 Haz clic en un lugar en el mapa.</p>
         <p>2 Escribe tu experiencia, historia o sensación relacionada con ese lugar.</p>
         <p>3 Haz clic en «¡Hecho!».</p>
-
         <div style="margin-bottom:8px;">
           <label style="font-size:12px;">Nombre o identificador:</label>
           <input
@@ -252,7 +255,6 @@ html, body {
             "
           >
         </div>
-
         <textarea
           id="msg-${id}"
           style="
@@ -263,34 +265,44 @@ html, body {
           "
           placeholder="Escribe aquí tu historia..."
         ></textarea>
-
         <div style="margin-top:8px;">
           <label style="font-size:12px;">Color del pin:</label>
           <input type="color" id="color-${id}" value="#ff4fd8">
         </div>
-
         <button class="popup-btn done-btn" onclick="window.savePin(${id})">
           ¡Hecho!
         </button>
-        <button class="popup-btn close-btn"
-          onclick="window.cancelPin(${id})">
-          X
+        <button class="popup-btn close-btn" onclick="window.cancelPin(${id})">
+          Cerrar
         </button>
       </div>
     `;
   }
 
-  // ── SAVED PIN POPUP ──
-  // Author is intentionally NOT displayed here
-  function savedPinPopup(message) {
-    return `
-      <div style="max-width:220px;">
-        ${message ? `<p style="margin:0;">${message}</p>` : "<em>Sin mensaje.</em>"}
-      </div>
-    `;
-  }
+  // SAVED-PIN POPUP: W/o Author
+  function savedPinPopup(message, docId, likes = 0) {
+  return `
+    <div style="max-width:220px;">
+      ${message ? `<p style="margin:0;">${message}</p>` : "<em>Sin mensaje.</em>"}
+      <button
+        onclick="window.addLike('${docId}', this)"
+        style="
+          margin-top: 10px;
+          background: none;
+          border: none;
+          cursor: pointer;
+          font-size: 18px;
+          padding: 0;
+        "
+      >
+        ❤️ <span>${likes}</span>
+      </button>
+    </div>
+  `;
+}
 
-  // ── MAP CLICK ──
+
+  // MAP CLICK: temporary pin
   map.on("click", function(e) {
     const id     = pinId++;
     const marker = L.marker(e.latlng, {
@@ -302,7 +314,7 @@ html, body {
 
     marker.bindPopup(newPinPopup(id)).openPopup();
 
-    // NOT SAVING PINS
+    // Close temporary pin
     marker.on("popupclose", () => {
       if (!pending[id]?.saved) {
         map.removeLayer(marker);
@@ -311,7 +323,7 @@ html, body {
     });
   });
 
-  // ── SAVE PIN 
+  // SAVE PIN: Save to Firestone
   window.savePin = async function(id) {
     const entry = pending[id];
     if (!entry) return;
@@ -326,25 +338,24 @@ html, body {
     const message = msgInput   ? msgInput.value   : "";
     const author  = nameInput  ? nameInput.value  : "";
 
-    // MARK AS SAVED
+    // Mark as saved
     pending[id].saved = true;
 
-    // PIN COLOUR
     marker.setIcon(createPin(color));
 
-    // NOT SHOW AUTHOR
     marker.unbindPopup();
-    marker.bindPopup(savedPinPopup(message));
+    marker.bindPopup(savedPinPopup(message, "", 0));
     marker.closePopup();
 
-    // SAVE TO FIRESTONE
+    // Save to Firestore
     try {
       await addDoc(collection(db, "entries"), {
         lat:       marker.getLatLng().lat,
         lng:       marker.getLatLng().lng,
-        author:    author,   // stored but never displayed on the map
+        author:    author,   
         message:   message,
         color:     color,
+        likes:     0,
         createdAt: Date.now()
       });
     } catch (err) {
@@ -352,7 +363,7 @@ html, body {
     }
   };
 
-  // ── CANCEL PIN 
+  // CANCEL PIN 
   window.cancelPin = function(id) {
     const entry = pending[id];
     if (!entry) return;
@@ -360,14 +371,44 @@ html, body {
     delete pending[id];
   };
 
-  // ── ZOOM CONTROL
+  // ADD LIKES
+  window.addLike = async function(docId, btn) {
+    console.log("docId recibido:", docId);
+    btn.disabled = true;
+    const count  = btn.querySelector("span");
+    count.textContent = Number(count.textContent) + 1;
+
+    try {
+      const ref = doc(db, "entries", docId);
+      console.log("ref creada:", ref);
+      await updateDoc(ref, {
+        likes: increment(1)
+      });
+      console.log("Like guardado OK");
+    } catch (err) {
+      console.error("Like error completo:", err);
+      console.error("Código:", err.code);
+      console.error("Mensaje:", err.message);
+    }
+  };
+
+
+  // ZOOM CONTROLS 
   document.getElementById("zoomIn").onclick  = () => map.zoomIn();
   document.getElementById("zoomOut").onclick = () => map.zoomOut();
 
-  // ── SEARCH AUTOCOMPLETE
+  // SEARCH AUTOCOMPLETE
   const searchInput   = document.getElementById("searchBox");
   const suggestionBox = document.getElementById("suggestions");
   let debounceTimer;
+
+  // SELECT BY ENTER
+  searchInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      const first = suggestionBox.querySelector(".suggestion");
+      if (first) first.click();
+    }
+  });
 
   searchInput.addEventListener("input", () => {
     clearTimeout(debounceTimer);
@@ -394,33 +435,70 @@ html, body {
           div.innerText = place.display_name;
 
           div.onclick = () => {
+            // ERASE SEARCH
+            if (window._searchMarker) {
+              map.removeLayer(window._searchMarker);
+            }
+
             map.setView([place.lat, place.lon], 16);
             searchInput.value           = place.display_name;
             suggestionBox.style.display = "none";
-          };
+
+            // TEMPORARY SEARCH PIN
+            window._searchMarker = L.marker([place.lat, place.lon], {
+              icon: L.divIcon({
+                className: "",
+                html: `
+                  <div style="
+                    width: 18px;
+                    height: 18px;
+                    background: #ff4fd8;
+                    border: 3px solid white;
+                    border-radius: 50%;
+                    box-shadow: 0 0 0 3px #ff4fd8;
+                  "></div>
+                `,
+                iconSize:   [18, 18],
+                iconAnchor: [9, 9]
+              }),
+              pane: 'alwaysOnTopPane'
+            })
+            .addTo(map)
+            .bindPopup(`<div style="font-size:13px;">${place.display_name}</div>`)
+            .openPopup();
+          };                              
 
           suggestionBox.appendChild(div);
-        });
+        });                              
+
       } catch (err) {
         console.error("Nominatim search error:", err);
       }
-    }, 300);
-  });
+    }, 300);                              
+  });                                     
 
   // HIDE SUGGESTIONS
   document.addEventListener("click", (e) => {
-    if (!e.target.closest("#searchBox")) {
+    if (!e.target.closest("#searchBox") && !e.target.closest("#suggestions")) {
       suggestionBox.style.display = "none";
     }
   });
 
-  // ── LOAD PINS FROM FIRESTORE ──
+  searchInput.addEventListener("focus", () => {
+    if (suggestionBox.innerHTML.trim() !== "") {
+      suggestionBox.style.display = "block";
+    }
+  });
+
+  // LOAD PINS FIRESTONE
   async function loadPins() {
     try {
       const snapshot = await getDocs(collection(db, "entries"));
 
-      snapshot.forEach((doc) => {
-        const data = doc.data();
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+
+        if (!data.lat || !data.lng) return; 
 
         const marker = L.marker(
           [data.lat, data.lng],
@@ -430,15 +508,14 @@ html, body {
           }
         ).addTo(map);
 
-        // NOT SHOW AUTHOR
-        marker.bindPopup(savedPinPopup(data.message));
+        console.log("Pin cargado:", docSnap.id, "likes:", data.likes);
+        marker.bindPopup(savedPinPopup(data.message, docSnap.id, data.likes || 0));
       });
 
     } catch (err) {
       console.error("Firestore load error:", err);
     }
   }
-
   loadPins();
 
 </script>
