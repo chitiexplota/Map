@@ -1,0 +1,26 @@
+# Haciendo.lab - Mapa Colaboraitvo
+
+
+## Estructura de archivos
+
+- **`index.html`** — Estructura del documento (head, body, botones, contenedores). Enlaza `style.css` y `script.js`.
+- **`style.css`** — Todo el contenido que estaba dentro de `<style>...</style>` en el archivo original.
+- **`script.js`** — Todo el contenido que estaba dentro de `<script type="module">...</script>`, incluida la lógica de Firebase, el mapa Leaflet, los pines, la búsqueda con prioridad Barcelona/Cataluña, el teclado (flechas + WASD) y la lista de lugares compartidos.
+- **`README.md`** — Este archivo.
+
+## Requisitos 
+
+1. Los tres archivos (`index.html`, `style.css`, `script.js`) deben estar en la **misma carpeta**.
+2. Debe existir un archivo `logo.png` en esa misma carpeta (referenciado en `index.html` como `<img src="logo.png">`).
+3. El proyecto necesita conexión a internet para cargar Leaflet, las fuentes de Google, los tiles de CARTO, Firebase y la API de Nominatim (búsqueda de direcciones).
+4. Si se sirve desde un servidor local o de producción, `type="module"` en `script.js` requiere que el archivo se sirva por HTTP/HTTPS (no funciona abriendo `index.html` directamente con `file://` en algunos navegadores).
+
+## Funcionalidades incluidas
+
+- Guardado de pines y mensajes en Firestore (`savePin`).
+- Sistema de likes (`addLike`).
+- Carga de pines existentes al abrir el mapa (`loadPins`).
+- Buscador de direcciones con prioridad Barcelona ciudad → Cataluña → global.
+- Controles de zoom con botones y teclado (flechas y WASD).
+- Alternancia de contraste de mapa (`contrastToggle`).
+- Lista lateral de "lugares compartidos" (`listToggle`).
