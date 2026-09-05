@@ -29,7 +29,7 @@ import { initializeApp }
   const map = L.map('map', { zoomControl: false }).setView([41.4036, 2.1744], 13);
 
   L.tileLayer(
-    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=cb1_2ybc_1_8518c0a9a781f7fc341376d1',
     {
       attribution: '&copy; OpenStreetMap &copy; CARTO',
       subdomains: 'abcd',
@@ -39,7 +39,7 @@ import { initializeApp }
 
   // LAYER OVERLAY
 L.tileLayer(
-  'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',
+  'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png?key=cb1_2ybc_1_8518c0a9a781f7fc341376d1',
   {
     opacity: 1.0,
     subdomains: 'abcd',
@@ -132,13 +132,13 @@ L.tileLayer(
   //TOGGLE DARKNESS
   let highContrast = false;
 const voyagerLayer = L.tileLayer(
-  'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+  'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=cb1_2ybc_1_8518c0a9a781f7fc341376d1',
   { attribution: '&copy; OpenStreetMap &copy; CARTO', subdomains: 'abcd', maxZoom: 20 }
 );
 voyagerLayer.addTo(map);
 
 const contrastLayer = L.tileLayer(
-  'https://{s}.basemaps.cartocdn.com/rastertiles/light_all/{z}/{x}/{y}{r}.png',
+  'https://{s}.basemaps.cartocdn.com/rastertiles/light_all/{z}/{x}/{y}{r}.png?key=cb1_2ybc_1_8518c0a9a781f7fc341376d1',
   { attribution: '&copy; OpenStreetMap &copy; CARTO', subdomains: 'abcd', maxZoom: 20 }
 );
 
